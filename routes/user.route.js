@@ -1,18 +1,17 @@
 const router = require("express").Router()
-const { isAuthenticated } = require("../middlewares/auth")
+const { isAuthenticated, isVerified } = require("../middlewares/auth")
 const { validateRequest } = require("../middlewares/validate")
-const { userValidator } = require("../validators/user.validator")
-const { uploadPhoto } = require("../middlewares/upload")
+const { userValidator, verifyUserValidator } = require("../validators/user.validator")
 const {
     signUp,
     login,
-    getProfile
+    getProfile,
+    verifyEmail
 } = require("../controllers/user.controller")
 
-let type = uploadPhoto.single('Image');
-
-router.route('/').post(validateRequest(userValidator), type, signUp)
-router.get('/profile', isAuthenticated, isVerified, getProfile)
+router.post('/', validateRequest(userValidator), signUp)
+router.get('/me', isAuthenticated, isVerified, getProfile)
 router.post('/login', validateRequest(userValidator), login)
+router.post('/verify', validateRequest(verifyUserValidator), verifyEmail)
 
 module.exports = router

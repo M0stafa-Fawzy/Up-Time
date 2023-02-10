@@ -1,4 +1,5 @@
 const { verify } = require("jsonwebtoken");
+const User = require("../models/user.model")
 const { CustomError } = require("../utils/errors");
 
 const isAuthenticated = (req, res, next) => {
@@ -8,18 +9,25 @@ const isAuthenticated = (req, res, next) => {
   const [, token] = authHeader.split(" ");
   verify(token, process.env.JWT_SECRET, (err, decoded) => {
     if (err) throw new CustomError("user is not authenticated", 401)
-    let { id, status } = decoded;
 
+    let { id } = decoded;
     req.id = id;
-    req.status = status;
     next();
   });
 };
 
 const isVerified = async (req, res, next) => {
-  const { status } = req
-  if (status != "verified") throw new CustomError("only verified users can perform such action", 403)
-  next()
+  try {
+    const { id } = req
+    const user = await User.findById(id)
+
+    if (!user) throw new CustomError("user not found", 404)
+    if (user.status != "verified") throw new CustomError("only verified users can perform such action", 403)
+
+    next()
+  } catch (error) {
+    next(error)
+  }
 }
 
 module.exports = {

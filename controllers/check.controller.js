@@ -1,85 +1,137 @@
+const axios = require("axios")
 const Check = require('../models/check.model')
 const { downMail, upMail } = require('../helpers/email');
 const { CustomError } = require('../utils/errors');
 const { asyncHandler } = require("../utils/asyncHandler")
 
+const map = []
+axios.interceptors.request.use(function (config) {
+    config.metadata = { startTime: new Date() }
+    return config;
+}, function (error) {
+    return Promise.reject(error);
+});
+
+let uptime = 0, downtime = 0
+axios.interceptors.response.use((response) => {
+    response.config.metadata.endTime = new Date()
+    response.duration = response.config.metadata.endTime - response.config.metadata.startTime
+    uptime += response.duration
+    response.uptime = uptime
+    return response;
+}, (error) => {
+    error.config.metadata.endTime = new Date();
+    error.duration = error.config.metadata.endTime - error.config.metadata.startTime;
+    downtime += error.duration
+    error.downtime = downtime
+    return Promise.reject(error);
+});
 
 const createCheck = asyncHandler(async (req, res) => {
+    await Check.deleteMany({})
     const { name, url, protocol, path, port, interval, threshold,
-        authentication, ttpHeaders, assert, tags, ignoreSSL } = req.body
+        authentication, httpHeaders, assert, tags, ignoreSSL } = req.body
     const { id } = req
 
-    const check = Check.create({
-        url, interval, name, protocol,
-        owner: _id
+    let uri = `${protocol ? protocol + '://' : 'https://'}${url}${port ? ':' + port : ""}${path ? path : ""}`
+    let check = await Check.create({
+        name, url: uri, protocol, path, port, interval, threshold,
+        authentication, httpHeaders, assert, tags, ignoreSSL, owner: id
     })
-    const monitor = ping(url, interval, name)
+    if (!check) throw new CustomError("check creation failed", 500)
 
-    monitor.on('up', async (response, state) => {
-        // upMail(req.user.email, check.name)
-        res.status(201).send(check)
+    const intervalID = setInterval(async () => {
+        let headers = httpHeaders ? { ...httpHeaders } : { ...authentication }
+        axios.get(uri, { headers })
+            .then(async (res) => {
+                console.log(res.duration, res.uptime);
+                let ch = await Check.findById(check._id)
+                ch.upTime = res.uptime
+                ch.history.push(new Date())
+                ch.responseTime.push(res.duration)
+                await ch.save()
+            })
+            .catch(async (e) => {
+                console.log(e.duration, e.downtime);
+                let ch = await Check.findById(check._id)
+                ch.downTime = e.downtime
+                ch.outage.push(new Date())
+                ch.history.push(new Date())
+                ch.responseTime.push(e.duration)
+                await ch.save()
+            })
+    }, +interval * 60 * 1000)
 
-        monitor.on('down', async (response) => {
-            // downMail(req.user.email, check.name)
-        })
-
-        monitor.on('stop', () => {
-            return res.status(400).send('monitor has stopped')
-        })
-
-        monitor.on('error', (err) => {
-            return res.status(400).send(err)
-        })
-    })
+    map.push({ id: check._id, intervalID })
+    return res.status(200).json({ check })
 })
 
 const deleteCheck = asyncHandler(async (req, res) => {
-    const check = await Check.findByIdAndDelete({ _id: req.params.id, owner: req.user._id })
-    if (!check) {
-        return res.status(404).send()
-    }
-    res.status(200).send(check)
+    const { id } = req
+    const { checkID } = req.params
+    if (!checkID) throw new CustomError("check id is not provided", 400)
+
+    const check = await Check.findByIdAndDelete({ _id: checkID, owner: id })
+    if (!check) throw new CustomError("check not found or it does not belong to you", 404)
+
+    clearInterval(map.filter(ob => ob.id == checkID)[0].intervalID)
+    return res.status(200).json({ message: "check deleted successfully", check })
 })
 
 const updateCheck = asyncHandler(async (req, res) => {
-    const { name, url, protocol, path, port, interval, threshold,
-        authentication, ttpHeaders, assert, tags, ignoreSSL } = req.body
     const { id } = req
+    const { checkID } = req.params
+    if (!checkID) throw new CustomError("check id is not provided", 400)
 
-    const check = await Check.findOne({ _id: req.params.id, owner: id })
-    if (!check) {
-        return res.status(404).send()
-    }
-    const keys = Object.keys(req.body)
-    const allowsUpdates = ['name', 'protocol', 'url', 'path', 'webhook', 'timeout', 'interval', 'threshold', 'httpHeaders', 'tags', 'assert', 'ignoreSSL']
-    const valid = keys.every((update) => allowsUpdates.includes(update))
-    if (!valid) {
-        return res.status(500).send({ error: 'invalid updates' })
-    }
-    try {
-        keys.forEach((update) => {
-            check[update] = req.body[update]
-        })
-        await check.save()
-        res.status(200).send(check)
-    } catch (error) {
-        return res.status(400).json({ message: error.message })
-    }
+    const { name, url, protocol, path, port, interval, threshold,
+        authentication, httpHeaders, assert, tags, ignoreSSL } = req.body
+    clearInterval(map.filter(ob => ob.id == checkID)[0].intervalID)
+
+    const check = await Check.findOneAndUpdate(
+        { _id: checkID, owner: id },
+        {
+            name, url, protocol, path, port, interval, threshold,
+            authentication, httpHeaders, assert, tags, ignoreSSL
+        },
+        { new: true, runValidators: true }
+    )
+    if (!check) throw new CustomError("updating check failed", 500)
+
+    let uri = `${protocol ? protocol + '://' : check.protocol}${url}${port ? ':' + port : check.port}${path ? path : check.path}`
+    const intervalID = setInterval(async () => {
+        let headers = httpHeaders ? { ...httpHeaders } : { ...authentication }
+        axios.get(uri, { headers })
+            .then(async (res) => {
+                let ch = await Check.findById(check._id)
+                ch.upTime = res.uptime
+                ch.history.push(new Date())
+                ch.responseTime.push(res.duration)
+                await ch.save()
+            })
+            .catch(async (e) => {
+                console.log(e.duration, e.downtime);
+                let ch = await Check.findById(check._id)
+                ch.downTime = e.downtime
+                ch.outage.push(new Date())
+                ch.history.push(new Date())
+                ch.responseTime.push(e.duration)
+                await ch.save()
+            })
+    }, +interval * 60 * 1000)
+
+    map.push({ id: check._id, intervalID })
+    return res.status(200).json({ check })
 })
 
 const getCheck = asyncHandler(async (req, res) => {
-    const check = await Check.findOne({ _id: req.params.id, owner: id });
-    if (!check) {
-        return res.status(404).send();
-    }
+    const { id } = req
+    const { checkID } = req.params
+    if (!checkID) throw new CustomError("check id is not provided", 400)
 
-    const monitor = ping(check.url, check.interval);
-    monitor.on('up', (response, state) => {
-        if (state.isUp) {
-            monitor.stop();
-        }
-    });
-    res.status(200).send('paused');
+    const check = await Check.findOne({ _id: checkID, owner: id });
+    if (!check) throw new CustomError("check not forund", 404)
+
+    return res.status(200).json({ check });
 })
 
 module.exports = {
