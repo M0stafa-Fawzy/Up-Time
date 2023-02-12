@@ -29,6 +29,5 @@ app.get("/", (req, res) => {
 
 try {
     app.listen(PORT, () => console.log(`running on port ${PORT}`))
-    thresholdsInterval()
+    // thresholdsInterval()
 } catch (error) { }
-

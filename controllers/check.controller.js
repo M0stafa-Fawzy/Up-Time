@@ -144,9 +144,41 @@ const getCheck = asyncHandler(async (req, res) => {
     return res.status(200).json({ check });
 })
 
+const getChecksGroupedByTagName = async (req, res) => {
+    const { tagName } = req.query
+    if (!tagName) throw new CustomError("tag name not provided", 400)
+
+    const agg = [
+        {
+            $unwind: {
+                path: "$tags"
+            }
+        },
+        {
+            $match: {
+                tags: tagName
+            }
+        },
+        {
+            $group: {
+                _id: "$tags",
+                downtime: {
+                    "$sum": "$downTime"
+                },
+                upTime: {
+                    "$sum": "$upTime"
+                }
+            }
+        }
+    ]
+
+    let checks = await Check.aggregate(agg)
+    return res.status(200).json({ checks })
+}
 module.exports = {
     createCheck,
     deleteCheck,
     updateCheck,
-    getCheck
+    getCheck,
+    getChecksGroupedByTagName
 }
