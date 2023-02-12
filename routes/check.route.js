@@ -1,5 +1,5 @@
 const router = require('express').Router()
-const { isAuthenticated, isVerified } = require("../src/middleware/auth")
+const { isAuthenticated, isVerified } = require("../middlewares/auth")
 const {
     createCheck,
     deleteCheck,
@@ -9,6 +9,6 @@ const {
 
 router.use([isAuthenticated, isVerified])
 router.route('/').post(createCheck)
-router.route('/:id',).put(updateCheck).delete(deleteCheck).get(getCheck)
+router.route('/:checkID',).put(updateCheck).delete(deleteCheck).get(getCheck)
 
 module.exports = router

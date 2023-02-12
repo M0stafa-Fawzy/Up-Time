@@ -1,6 +1,7 @@
 const mongoose = require("mongoose")
 const { isURL } = require("validator")
 const { CustomError } = require("../utils/errors")
+const joi = require("joi")
 
 
 const schema = new mongoose.Schema({
@@ -11,14 +12,15 @@ const schema = new mongoose.Schema({
     url: {
         type: String,
         required: true,
-        validate(value) {
-            if (!isURL(value)) {
-                throw new CustomError("Please Enter a Correct URL To Be Monitored", 406);
-            }
-        }
+        unoque: true,
+        // validate(value) {
+        //     if (!isURL(value)) {
+        //         throw new CustomError("Please Enter a Correct URL To Be Monitorecdddddddddd", 406);
+        //     }
+        // }
     },
     protocol: {
-        type: Number,
+        type: String,
         enum: ["HTTP", "HTTPS", "TCP", "https", "http", "tcp"]
     },
     path: String,
@@ -57,7 +59,21 @@ const schema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         required: true,
         ref: 'user'
-    }
+    },
+    intervalID: {
+        type: mongoose.Schema.Types.Mixed,
+    },
+    upTime: {
+        type: Number,
+        default: 0
+    },
+    downTime: {
+        type: Number,
+        default: 0
+    },
+    outage: [Date],
+    responseTime: [Number],
+    history: [Date]
 }, { timestamps: true })
 
 

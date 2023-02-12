@@ -10,11 +10,16 @@ const schema = new mongoose.Schema({
         type: String,
         unique: true,
         required: true,
+        lowercase: true,
         validate(value) {
             if (!isEmail(value)) {
                 throw new CustomError("Please Enter a Correct Email", 406);
             }
         }
+    },
+    username: {
+        type: String,
+        required: true
     },
     password: {
         type: String,
@@ -50,8 +55,7 @@ schema.methods.toJSON = function () {
 
 schema.methods.generateToken = function () {
     return sign({
-        id: this._id,
-        status: this.status
+        id: this._id
     }, process.env.JWT_SECRET)
 }
 
