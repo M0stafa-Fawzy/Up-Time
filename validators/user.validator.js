@@ -11,5 +11,8 @@ const verifyUserValidator = Joi.object({
     otp: Joi.number().required()
 })
 
-
+module.exports = {
+    userValidator,
+    verifyUserValidator
+}
 

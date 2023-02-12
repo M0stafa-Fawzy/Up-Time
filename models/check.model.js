@@ -12,7 +12,7 @@ const schema = new mongoose.Schema({
     url: {
         type: String,
         required: true,
-        unoque: true,
+        unique: true,
         // validate(value) {
         //     if (!isURL(value)) {
         //         throw new CustomError("Please Enter a Correct URL To Be Monitorecdddddddddd", 406);
@@ -21,6 +21,7 @@ const schema = new mongoose.Schema({
     },
     protocol: {
         type: String,
+        required: true,
         enum: ["HTTP", "HTTPS", "TCP", "https", "http", "tcp"]
     },
     path: String,
