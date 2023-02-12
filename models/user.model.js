@@ -33,10 +33,6 @@ const schema = new mongoose.Schema({
     otp: {
         type: Number,
         required: true
-    },
-    Image: {
-        type: String,
-        default: ""
     }
 }, { timestamps: true })
 

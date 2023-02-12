@@ -6,8 +6,9 @@ const cors = require("cors")
 const helmet = require("helmet")
 const hpp = require("hpp")
 const { errorHandler } = require("./middlewares/error")
-const PORT = process.env.PORT || 3000
+const { thresholdsInterval } = require("./helpers/checkThresholdsInterval")
 
+const PORT = process.env.PORT || 3000
 const users = require("./routes/user.route")
 const checks = require("./routes/check.route")
 const reports = require("./routes/report.route")
@@ -20,11 +21,14 @@ app.use(helmet());
 app.use("/api/users", users)
 app.use("/api/checks", checks)
 app.use("/api/reports", reports)
-
 app.use(errorHandler)
 
 app.get("/", (req, res) => {
     res.send('<h1>Up-Time Monitor</h1>')
 })
 
-app.listen(PORT, () => console.log(`running on port ${PORT}`))
+try {
+    app.listen(PORT, () => console.log(`running on port ${PORT}`))
+    thresholdsInterval()
+} catch (error) { }
+

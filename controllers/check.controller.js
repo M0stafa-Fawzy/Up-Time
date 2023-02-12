@@ -1,8 +1,15 @@
 const axios = require("axios")
+const https = require("https")
 const Check = require('../models/check.model')
 const { downMail, upMail } = require('../helpers/email');
 const { CustomError } = require('../utils/errors');
 const { asyncHandler } = require("../utils/asyncHandler")
+
+const returnAgent = (ignoreSSL) => {
+    return new https.Agent({
+        rejectUnauthorized: ignoreSSL ? ignoreSSL : false
+    });
+}
 
 const map = []
 axios.interceptors.request.use(function (config) {
@@ -12,18 +19,13 @@ axios.interceptors.request.use(function (config) {
     return Promise.reject(error);
 });
 
-let uptime = 0, downtime = 0
 axios.interceptors.response.use((response) => {
     response.config.metadata.endTime = new Date()
     response.duration = response.config.metadata.endTime - response.config.metadata.startTime
-    uptime += response.duration
-    response.uptime = uptime
     return response;
 }, (error) => {
     error.config.metadata.endTime = new Date();
     error.duration = error.config.metadata.endTime - error.config.metadata.startTime;
-    downtime += error.duration
-    error.downtime = downtime
     return Promise.reject(error);
 });
 
@@ -42,22 +44,26 @@ const createCheck = asyncHandler(async (req, res) => {
 
     const intervalID = setInterval(async () => {
         let headers = httpHeaders ? { ...httpHeaders } : { ...authentication }
-        axios.get(uri, { headers })
+        axios.get(uri, { headers }, { httpsAgent: returnAgent(ignoreSSL) })
             .then(async (res) => {
-                console.log(res.duration, res.uptime);
-                let ch = await Check.findById(check._id)
-                ch.upTime = res.uptime
-                ch.history.push(new Date())
-                ch.responseTime.push(res.duration)
+                console.log(res.duration);
+                let ch = await Check.findById(check._id).populate("owner", "username email")
+                if (res?.status != ch?.lastStatus) upMail(ch?.owner?.email, ch?.name, ch?.url, new Date())
+                ch.lastStatus = res?.status
+                ch.upTime = ch?.upTime + (+interval * 60 * 1000)
+                ch.history?.push(new Date())
+                ch.responseTime?.push(res.duration)
                 await ch.save()
             })
             .catch(async (e) => {
-                console.log(e.duration, e.downtime);
-                let ch = await Check.findById(check._id)
-                ch.downTime = e.downtime
-                ch.outage.push(new Date())
-                ch.history.push(new Date())
-                ch.responseTime.push(e.duration)
+                let ch = await Check.findById(check._id).populate("owner", "username email")
+                if (e?.status != ch?.lastStatus) downMail(ch?.owner?.email, ch?.name, ch?.url, new Date())
+                ch.lastStatus = e?.status
+                ch.downTime = ch?.downTime + (+interval * 60 * 1000)
+                ch.outage?.push(new Date())
+                ch.history?.push(new Date())
+                ch.responseTime?.push(e.duration)
+                ch.threshold++
                 await ch.save()
             })
     }, +interval * 60 * 1000)
@@ -100,21 +106,25 @@ const updateCheck = asyncHandler(async (req, res) => {
     let uri = `${protocol ? protocol + '://' : check.protocol}${url}${port ? ':' + port : check.port}${path ? path : check.path}`
     const intervalID = setInterval(async () => {
         let headers = httpHeaders ? { ...httpHeaders } : { ...authentication }
-        axios.get(uri, { headers })
+        axios.get(uri, { headers }, { httpsAgent: returnAgent(ignoreSSL) })
             .then(async (res) => {
-                let ch = await Check.findById(check._id)
-                ch.upTime = res.uptime
-                ch.history.push(new Date())
-                ch.responseTime.push(res.duration)
+                let ch = await Check.findById(check._id).populate("owner", "username email")
+                if (res?.status != ch?.lastStatus) upMail(ch?.owner?.email, ch?.name, ch?.url, new Date())
+                ch.lastStatus = res?.status
+                ch.upTime = ch?.upTime + (+interval * 60 * 1000)
+                ch.history?.push(new Date())
+                ch.responseTime?.push(res.duration)
                 await ch.save()
             })
             .catch(async (e) => {
-                console.log(e.duration, e.downtime);
-                let ch = await Check.findById(check._id)
-                ch.downTime = e.downtime
-                ch.outage.push(new Date())
-                ch.history.push(new Date())
-                ch.responseTime.push(e.duration)
+                let ch = await Check.findById(check._id).populate("owner", "username email")
+                if (e?.status != ch?.lastStatus) downMail(ch?.owner?.email, ch?.name, ch?.url, new Date())
+                ch.lastStatus = e?.status
+                ch.downTime = ch?.downTime + (+interval * 60 * 1000)
+                ch.outage?.push(new Date())
+                ch.history?.push(new Date())
+                ch.responseTime?.push(e.duration)
+                ch.threshold++
                 await ch.save()
             })
     }, +interval * 60 * 1000)

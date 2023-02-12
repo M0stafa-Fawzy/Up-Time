@@ -19,6 +19,10 @@ const schema = new mongoose.Schema({
         //     }
         // }
     },
+    lastStatus: {
+        type: mongoose.Schema.Types.Mixed,
+        default: 200
+    },
     protocol: {
         type: String,
         required: true,
@@ -44,7 +48,7 @@ const schema = new mongoose.Schema({
     },
     threshold: {
         type: Number,
-        default: 1
+        default: 0
     },
     authentication: {
         username: String,
@@ -74,7 +78,8 @@ const schema = new mongoose.Schema({
     },
     outage: [Date],
     responseTime: [Number],
-    history: [Date]
+    history: [Date],
+    tags: [String]
 }, { timestamps: true })
 
 

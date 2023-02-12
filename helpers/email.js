@@ -1,37 +1,56 @@
 const sgMail = require('@sendgrid/mail')
 sgMail.setApiKey(process.env.SEND_GRID_API)
 
-const upMail = (email, name) => {
+const upMail = (email, name, url, recordedAt) => {
     sgMail.send({
         // put my mail just for test purpose
         from: 'mostafafawzy471@gmail.com',
         to: email,
-        subject: 'your site is up',
-        text: `we want to notify you that your site which check title is ${name} is now up`
+        subject: 'Attention. Your Site is Up',
+        text: `We Want to Notify You That Your Site With Check Title (${name}) and URL (${url}) is Now Up at ${recordedAt}`
     })
 }
 
-const downMail = (email, url) => {
-    sgMail.send({
-        // put my mail just for test purpose
-        from: 'mostafafawzy256@gmail.com',
-        to: email,
-        subject: 'your site is down',
-        text: `we want to notify you that your site which check title is ${name} is now down`
-    })
+const downMail = (email, name, url, recordedAt) => {
+    try {
+        sgMail.send({
+            // put my mail just for test purpose
+            from: 'mostafafawzy471@gmail.com',
+            to: email,
+            subject: 'Attention. Your Site is Down',
+            text: `We Want to Notify You That Your Check With Check Title (${name}) and URL (${url}) is Now Down at ${recordedAt}`
+        })
+    } catch (error) { }
 }
 
 const verificationMail = (name, email, otp) => {
-    sgMail.send({
-        from: 'mostafafawzy256@gmail.com',
-        to: email,
-        subject: 'verification mail',
-        text: `Hello ${name}. Your verification code is ${otp}.`
-    })
+    try {
+        sgMail.send({
+            // put my mail just for test purpose
+            from: 'mostafafawzy471@gmail.com',
+            to: email,
+            subject: 'verification mail',
+            text: `Hello ${name}. Your Verification Code is ${otp}.`
+        })
+    } catch (error) { }
+}
+
+const thresholdMail = (email, url, threshold) => {
+    try {
+        sgMail.send({
+            // put my mail just for test purpose
+            from: 'mostafafawzy471@gmail.com',
+            to: email,
+            subject: 'Attention. Your Site is Not Stable',
+            text: `We Want to Notify You That Your URL (${url}) Has Been Found Down ${threshold} Times.`
+        })
+    } catch (error) { }
+
 }
 
 module.exports = {
     upMail,
     downMail,
-    verificationMail
+    verificationMail,
+    thresholdMail
 }

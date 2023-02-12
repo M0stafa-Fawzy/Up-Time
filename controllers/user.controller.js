@@ -13,7 +13,7 @@ const signUp = asyncHandler(async (req, res, next) => {
     })
     if (!user) throw new CustomError('signup failed', 500)
 
-    // verificationMail(user.username, user.email, otp)
+    verificationMail(user.username, user.email, otp)
     return res.status(201).json({ user, token: user.generateToken() })
 })
 
