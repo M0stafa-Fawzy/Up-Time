@@ -30,7 +30,7 @@ axios.interceptors.response.use((response) => {
 });
 
 const createCheck = asyncHandler(async (req, res) => {
-    await Check.deleteMany({})
+    // await Check.deleteMany({})
     const { name, url, protocol, path, port, interval, threshold,
         authentication, httpHeaders, assert, tags, ignoreSSL } = req.body
     const { id } = req
